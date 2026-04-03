@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@source "../app";
+@source "../components";
+@source "../lib";
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f0f4f0;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 10% 0%,  rgba(61, 122, 66, 0.13) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 10%,  rgba(141, 198, 63, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 60% at 80% 90%,  rgba(244, 132, 26, 0.09) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 20% 85%,  rgba(232, 58, 42, 0.07) 0%, transparent 50%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Animated background orbs — colours sampled from Opichi bird logo */
+.bg-orb {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+  animation: orb-drift 18s ease-in-out infinite alternate;
+}
+
+/* Dark green */
+.bg-orb-1 {
+  width: 520px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(45, 125, 50, 0.24) 0%, transparent 70%);
+  top: -120px;
+  left: -100px;
+  animation-duration: 20s;
+}
+
+/* Lime green */
+.bg-orb-2 {
+  width: 420px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(141, 198, 63, 0.18) 0%, transparent 70%);
+  top: -60px;
+  right: -80px;
+  animation-duration: 25s;
+  animation-delay: -8s;
+}
+
+/* Orange */
+.bg-orb-3 {
+  width: 480px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(244, 132, 26, 0.14) 0%, transparent 70%);
+  bottom: -100px;
+  right: 10%;
+  animation-duration: 22s;
+  animation-delay: -4s;
+}
+
+/* Red/coral */
+.bg-orb-4 {
+  width: 360px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(232, 58, 42, 0.10) 0%, transparent 70%);
+  bottom: 5%;
+  left: 5%;
+  animation-duration: 28s;
+  animation-delay: -12s;
+}
+
+@keyframes orb-drift {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(30px, -20px) scale(1.05); }
+  66%  { transform: translate(-20px, 30px) scale(0.97); }
+  100% { transform: translate(15px, -10px) scale(1.03); }
+}
+
+/* Card hover — slight scale up */
+.card-wobble {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+.card-wobble:hover {
+  transform: scale(1.025);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 10;
 }
