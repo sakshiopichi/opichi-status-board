@@ -4,6 +4,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { signIn } from '@/lib/auth-client';
 
 function LoginForm() {
@@ -58,7 +59,12 @@ function LoginForm() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">Password</label>
+                <Link href="/forgot-password" className="text-xs text-green-700 hover:text-green-800">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} required autoComplete="current-password"
                   value={password} onChange={e => setPassword(e.target.value)}

@@ -15,6 +15,14 @@
 - `lib/prisma.js`: Shared PrismaClient singleton using `@prisma/adapter-pg` (required by Prisma v7 — native engine removed).
 - `app/(auth)/login/page.js`: Wrapped in Suspense boundary to fix Next.js 16 `useSearchParams` prerender error.
 
+## Added (2026-04-06 password reset)
+- `app/(auth)/forgot-password/page.js`: User enters email → Better Auth sends reset link via Resend from `noreply@notifications.opichi.ai`.
+- `app/(auth)/reset-password/page.js`: Reads `?token=` from URL (placed there by Better Auth callback redirect), validates, sets new password, redirects to login.
+- `lib/auth.js`: Wired `sendResetPassword` callback — sends branded HTML email via Resend with the Better Auth-generated reset URL.
+- `proxy.js`: Added `/forgot-password` and `/reset-password` to public paths.
+- `app/(auth)/login/page.js`: Added "Forgot password?" link next to the Password label.
+- `.env.local`: Updated `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to production values.
+
 ## Added (2026-04-06 follow-up)
 - `lib/catalog.js`: Added AWS (Amazon Web Services) — uses `health.aws.amazon.com/public/currentevents`, a custom UTF-16 encoded JSON format.
 - `app/api/proxy/route.js`: Added `AWS_HOSTS` handler that reads the response as an ArrayBuffer, detects the BOM (FE FF = UTF-16 BE, FF FE = UTF-16 LE), strips it, and decodes with `TextDecoder` before returning JSON. Initial implementation used LE — corrected to BE after live testing confirmed AWS returns UTF-16 BE.

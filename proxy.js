@@ -1,7 +1,7 @@
 // IMPORTANT: After modifying this file, update CHANGELOG.md with a summary of your changes.
 import { NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/auth'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/api/auth'];
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
@@ -24,5 +24,5 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.gif|.*\\.ico|.*\\.webp).*)'],
 };
