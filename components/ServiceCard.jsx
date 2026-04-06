@@ -35,7 +35,7 @@ export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, er
       )}
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: svc.bg }}>
-        <ServiceIcon svcId={svc.id} color={svc.color} size={16} />
+        <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={16} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium leading-tight truncate">{svc.name}</p>
@@ -61,7 +61,7 @@ export function IssueCard({ svc, statusKey, statusLabel, isFetching, error, inci
       <div className="px-5 py-4 flex items-center gap-3 border-b border-black/[0.06]">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: svc.bg }}>
-          <ServiceIcon svcId={svc.id} color={svc.color} size={18} />
+          <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={18} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold leading-tight">{svc.name}</p>
@@ -119,7 +119,7 @@ export default function ServiceCard({ svc, statusKey, statusLabel, isFetching, e
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: svc.bg }}>
-          <ServiceIcon svcId={svc.id} color={svc.color} size={18} />
+          <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={18} />
         </div>
         <div>
           <p className="text-sm font-medium leading-tight">{svc.name}</p>

@@ -1,3 +1,34 @@
+# [2026-04-06]
+
+## Added
+- `lib/catalog.js`: Curated catalog of 12 common developer services (Vercel, Supabase, Stripe, Netlify, Render, DigitalOcean, Sentry, CircleCI, Datadog, Linear, PagerDuty, MongoDB Atlas) that users can add to their personal dashboard.
+- `app/api/services/route.js`: GET (list user's custom services) and POST (add by catalogId) — protected, per-user.
+- `app/api/services/[id]/route.js`: DELETE endpoint to remove a user's custom service — ownership-checked.
+- `components/AddServiceModal.jsx`: Modal UI showing the catalog grid with Add/Remove buttons per service.
+- Migration `20260406155754_add_custom_services`: Adds `CustomService` table (userId, catalogId, unique per user+service) with cascade delete.
+
+## Changed
+- `prisma/schema.prisma`: Added `CustomService` model and `customServices` relation on `User`.
+- `app/api/proxy/route.js`: Added 12 catalog service hostnames to `ALLOWED_HOSTS`.
+- `components/ServiceIcon.jsx`: Added `icon` prop — accepts a simple-icons object directly, enabling catalog services to render their brand SVG without being hardcoded in the built-in map.
+- `app/page.js`: Loads user's custom services on init, merges with built-in SERVICES, shows them on the dashboard. Added "Add service" button that opens the catalog modal. Add/remove handlers update state and sync the services ref so the next refresh cycle includes all services.
+- `lib/prisma.js`: Shared PrismaClient singleton using `@prisma/adapter-pg` (required by Prisma v7 — native engine removed).
+- `app/(auth)/login/page.js`: Wrapped in Suspense boundary to fix Next.js 16 `useSearchParams` prerender error.
+
+## Added (2026-04-06 follow-up)
+- `lib/catalog.js`: Added AWS (Amazon Web Services) — uses `health.aws.amazon.com/public/currentevents`, a custom UTF-16 encoded JSON format.
+- `app/api/proxy/route.js`: Added `AWS_HOSTS` handler that reads the response as an ArrayBuffer, detects the BOM (FE FF = UTF-16 BE, FF FE = UTF-16 LE), strips it, and decodes with `TextDecoder` before returning JSON. Initial implementation used LE — corrected to BE after live testing confirmed AWS returns UTF-16 BE.
+- `lib/services.js`: Added `isAWS` branch in `getServiceStatus` and `getIncidents` — events with `status === '3'` are active problems; empty array means operational.
+
+## Fixed (2026-04-06 follow-up)
+- `app/api/services/route.js` + `[id]/route.js`: Rewrote from PrismaClient (queries failing silently) to `pg` Pool raw SQL — same pattern as `lib/auth.js`. This was the root cause of added services not appearing on the dashboard.
+- `lib/catalog.js`: Removed Stripe and PagerDuty (their `/api/v2/summary.json` endpoints return 404 — no public Atlassian API). Replaced with Twilio (`status.twilio.com`) and SendGrid (`status.sendgrid.com`), both verified to return valid JSON.
+- `app/api/proxy/route.js`: Updated `ALLOWED_HOSTS` to match the corrected catalog URLs.
+- `components/ServiceIcon.jsx`: Added `initials` prop as text fallback for services without a simple-icons SVG (Twilio, SendGrid).
+- `components/ServiceCard.jsx` + `AddServiceModal.jsx`: Pass `initials={svc.initials}` to `ServiceIcon`.
+
+---
+
 # [2026-04-03]
 
 ## Changed

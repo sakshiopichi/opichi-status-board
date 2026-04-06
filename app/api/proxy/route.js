@@ -1,16 +1,33 @@
 // IMPORTANT: After modifying this file, update CHANGELOG.md with a summary of your changes.
 const ALLOWED_HOSTS = [
+  // Built-in services
   'status.anthropic.com',
   'www.cloudflarestatus.com',
   'status.openai.com',
   'status.cloud.google.com',
   'www.githubstatus.com',
+  // Catalog services (all verified to return Atlassian-format JSON)
+  'www.vercel-status.com',
+  'status.supabase.com',
+  'www.netlifystatus.com',
+  'status.render.com',
+  'status.digitalocean.com',
+  'status.sentry.io',
+  'status.circleci.com',
+  'status.datadoghq.com',
+  'linearstatus.com',
+  'status.mongodb.com',
+  'status.twilio.com',
+  'status.sendgrid.com',
 ];
 
 // Hosts that have no JSON status API — we do a HEAD ping and synthesize a response
 const PING_HOSTS = [
   'railway.app',
 ];
+
+// AWS status API returns UTF-16 LE encoded JSON — needs special decoding
+const AWS_HOSTS = new Set(['health.aws.amazon.com']);
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -21,6 +38,27 @@ export async function GET(request) {
   let parsed;
   try { parsed = new URL(target); } catch {
     return Response.json({ error: 'Invalid URL' }, { status: 400 });
+  }
+
+  // AWS mode: response is UTF-16 BE encoded with FE FF BOM — decode before parsing
+  if (AWS_HOSTS.has(parsed.hostname)) {
+    try {
+      const upstream = await fetch(target, {
+        headers: { 'User-Agent': 'StatusDashboard/1.0' },
+        next: { revalidate: 0 },
+      });
+      const buf = await upstream.arrayBuffer();
+      const view = new Uint8Array(buf);
+      // Detect BOM: FE FF = UTF-16 BE, FF FE = UTF-16 LE
+      let encoding = 'utf-16be';
+      let slice = buf;
+      if (view[0] === 0xFE && view[1] === 0xFF) { encoding = 'utf-16be'; slice = buf.slice(2); }
+      else if (view[0] === 0xFF && view[1] === 0xFE) { encoding = 'utf-16le'; slice = buf.slice(2); }
+      const text = new TextDecoder(encoding).decode(slice);
+      return Response.json(JSON.parse(text), { headers: { 'Cache-Control': 'no-store' } });
+    } catch (err) {
+      return Response.json({ error: err.message }, { status: 502 });
+    }
   }
 
   // Ping mode: HEAD request → synthetic status JSON

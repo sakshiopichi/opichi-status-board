@@ -2,10 +2,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { SERVICES, getServiceStatus, getIncidents } from '@/lib/services';
+import { CATALOG } from '@/lib/catalog';
 import { CompactServiceCard, IssueCard } from '@/components/ServiceCard';
+import AddServiceModal from '@/components/AddServiceModal';
 import FetchLog from '@/components/FetchLog';
 import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
@@ -19,18 +21,36 @@ export default function Dashboard() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
-  const [tab, setTab]                 = useState('dashboard');
-  const [svcData, setSvcData]         = useState({});
-  const [fetching, setFetching]       = useState(new Set());
-  const [logs, setLogs]               = useState([]);
-  const [lastUpdated, setLastUpdated] = useState('');
-  const [countdown, setCountdown]     = useState(REFRESH_INTERVAL);
-  const timerRef                      = useRef(null);
-  const refreshingRef                 = useRef(false);
+  const [tab, setTab]                   = useState('dashboard');
+  const [svcData, setSvcData]           = useState({});
+  const [fetching, setFetching]         = useState(new Set());
+  const [logs, setLogs]                 = useState([]);
+  const [lastUpdated, setLastUpdated]   = useState('');
+  const [countdown, setCountdown]       = useState(REFRESH_INTERVAL);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // customSvcRecords: [{ id, catalogId }] — raw from DB
+  const [customSvcRecords, setCustomSvcRecords] = useState([]);
+
+  const timerRef      = useRef(null);
+  const refreshingRef = useRef(false);
+  // Holds the current merged services list so refreshAll always reads the latest
+  const allServicesRef = useRef([...SERVICES]);
 
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
   }, [session, isPending, router]);
+
+  // Derived: catalog entries for the user's saved services
+  const customSvcs = customSvcRecords
+    .map(r => {
+      const cat = CATALOG.find(c => c.id === r.catalogId);
+      return cat ? { ...cat, _recordId: r.id } : null;
+    })
+    .filter(Boolean);
+
+  // addedMap for the modal: { [catalogId]: recordId }
+  const addedMap = Object.fromEntries(customSvcRecords.map(r => [r.catalogId, r.id]));
 
   const addLog = useCallback((type, msg) => {
     setLogs(prev => [...prev.slice(-199), { time: now(), type, msg }]);
@@ -60,7 +80,7 @@ export default function Dashboard() {
     clearInterval(timerRef.current);
     setCountdown(REFRESH_INTERVAL);
     addLog('info', '── Refresh cycle started ──');
-    await Promise.allSettled(SERVICES.map(fetchOne));
+    await Promise.allSettled(allServicesRef.current.map(fetchOne));
     setLastUpdated(now());
     addLog('info', `── Cycle complete — next in ${REFRESH_INTERVAL}s ──`);
     refreshingRef.current = false;
@@ -72,10 +92,37 @@ export default function Dashboard() {
     }, 1000);
   }, [fetchOne, addLog]);
 
+  const loadCustomServices = useCallback(async () => {
+    try {
+      const res = await fetch('/api/services');
+      if (!res.ok) return [];
+      return await res.json();
+    } catch { return []; }
+  }, []);
+
   useEffect(() => {
-    if (session) refreshAll();
+    if (!session) return;
+    async function init() {
+      const records = await loadCustomServices();
+      setCustomSvcRecords(records);
+      // Sync ref before refreshAll so all services are fetched in the first cycle
+      const catalogSvcs = records
+        .map(r => CATALOG.find(c => c.id === r.catalogId))
+        .filter(Boolean);
+      allServicesRef.current = [...SERVICES, ...catalogSvcs];
+      refreshAll();
+    }
+    init();
     return () => clearInterval(timerRef.current);
-  }, [session]);
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep ref in sync when custom services change
+  useEffect(() => {
+    const catalogSvcs = customSvcRecords
+      .map(r => CATALOG.find(c => c.id === r.catalogId))
+      .filter(Boolean);
+    allServicesRef.current = [...SERVICES, ...catalogSvcs];
+  }, [customSvcRecords]);
 
   async function handleSignOut() {
     await signOut();
@@ -83,11 +130,37 @@ export default function Dashboard() {
     router.refresh();
   }
 
-  // Partition services into operational and issue groups
+  async function handleAddService(catalogId) {
+    const res = await fetch('/api/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ catalogId }),
+    });
+    if (!res.ok) return;
+    const record = await res.json();
+    setCustomSvcRecords(prev => [...prev, record]);
+    // Immediately fetch status for the newly added service
+    const cat = CATALOG.find(c => c.id === catalogId);
+    if (cat) fetchOne(cat);
+  }
+
+  async function handleRemoveService(catalogId, recordId) {
+    const res = await fetch(`/api/services/${recordId}`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) return;
+    setCustomSvcRecords(prev => prev.filter(r => r.id !== recordId));
+    setSvcData(prev => {
+      const next = { ...prev };
+      delete next[catalogId];
+      return next;
+    });
+  }
+
+  // Partition all services into operational and issue groups
+  const allServices = [...SERVICES, ...customSvcs];
   const operationalServices = [];
   const issueServices = [];
 
-  for (const svc of SERVICES) {
+  for (const svc of allServices) {
     const d = svcData[svc.id];
     const { key, label } = getServiceStatus(svc, d?.data);
     const statusKey = d?.error ? 'err' : key;
@@ -95,7 +168,6 @@ export default function Dashboard() {
     const entry = { svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents };
 
     if (!d) {
-      // Still loading — show in operational column as loading state
       operationalServices.push(entry);
     } else if (statusKey === 'ok') {
       operationalServices.push(entry);
@@ -162,16 +234,24 @@ export default function Dashboard() {
       <main className="max-w-6xl mx-auto px-6 py-8 w-full">
         {tab === 'dashboard' && (
           <>
-            {/* Page title + last updated */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2.5 mb-1">
-                <span className={clsx('w-2 h-2 rounded-full', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
-                  style={{ animation: 'pulse 2s infinite' }} />
-                <h1 className="text-2xl font-semibold tracking-tight">Services Status</h1>
+            {/* Page title + last updated + Add service */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className={clsx('w-2 h-2 rounded-full', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
+                    style={{ animation: 'pulse 2s infinite' }} />
+                  <h1 className="text-2xl font-semibold tracking-tight">Services Status</h1>
+                </div>
+                <p className="text-sm text-gray-400 ml-4">
+                  {lastUpdated ? `Last updated ${lastUpdated}` : 'Initializing…'}
+                </p>
               </div>
-              <p className="text-sm text-gray-400 ml-4">
-                {lastUpdated ? `Last updated ${lastUpdated}` : 'Initializing…'}
-              </p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl px-4 py-2 transition-all flex-shrink-0 mt-1">
+                <Plus size={14} />
+                Add service
+              </button>
             </div>
 
             {/* All-clear banner */}
@@ -186,16 +266,11 @@ export default function Dashboard() {
             )}
 
             {hasIssues ? (
-              /* Two-column split: operational left, issues right */
               <div className="flex gap-6 items-start">
-
-                {/* Left — Operational */}
                 <div className="w-80 flex-shrink-0">
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={14} className="text-green-500" />
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Operational
-                    </h2>
+                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operational</h2>
                     <span className="ml-auto text-xs font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
                       {operationalServices.length}
                     </span>
@@ -213,13 +288,10 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Right — Issues */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-3">
                     <AlertTriangle size={14} className="text-amber-500" />
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Active Issues
-                    </h2>
+                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Issues</h2>
                     <span className="ml-auto text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                       {issueServices.length}
                     </span>
@@ -233,10 +305,8 @@ export default function Dashboard() {
                     ))}
                   </div>
                 </div>
-
               </div>
             ) : (
-              /* All-clear: single grid of compact cards */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {operationalServices.map(({ svc, statusKey, statusLabel, isFetching, error }) => (
                   <CompactServiceCard key={svc.id}
@@ -259,6 +329,15 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {showAddModal && (
+        <AddServiceModal
+          addedMap={addedMap}
+          onAdd={handleAddService}
+          onRemove={handleRemoveService}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }
