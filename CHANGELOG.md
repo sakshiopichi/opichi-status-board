@@ -7,6 +7,9 @@
 
 # [2026-04-15]
 
+## Fixed
+- `app/(auth)/forgot-password/page.js`: Changed `redirectTo` from relative path `/reset-password` to absolute URL using `window.location.origin` — Better Auth requires a full URL to construct the reset link correctly.
+
 ## Changed
 - `app/page.js` + `components/ServiceCard.jsx`: AWS, GCP, and Railway now stay in the Operational column with amber partial-impact styling instead of moving to Active Issues. When expanded, the card lists exactly which services/incidents are affected (e.g. "DynamoDB", "EC2" for AWS). Error and warn states still route to Active Issues. This avoids the false implication that an entire platform is down when only specific services are affected.
 
