@@ -305,7 +305,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex-1 min-w-0 order-1 xl:order-2">
+                <div className="w-full min-w-0 xl:flex-1 order-1 xl:order-2">
                   <div className="flex items-center gap-2 mb-3">
                     <AlertTriangle size={14} className="text-amber-500" />
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Issues</h2>
