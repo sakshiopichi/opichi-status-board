@@ -20,7 +20,7 @@ export default function RootLayout({ children }) {
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '700px',
+            width: 'min(700px, 85vw)',
             height: 'auto',
             opacity: 0.18,
             filter: 'blur(8px) saturate(1.2)',

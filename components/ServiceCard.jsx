@@ -29,7 +29,7 @@ function getImpactCfg(impact) {
 export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, error }) {
   const style = STATUS_STYLES[error ? 'err' : statusKey] || STATUS_STYLES.load;
   return (
-    <div className={clsx('card-wobble relative bg-white rounded-xl px-4 py-3 flex items-center gap-3 border transition-all duration-300', style.border)}>
+    <div className={clsx('card-wobble relative bg-white rounded-xl px-3 py-3 flex items-center gap-3 border transition-all duration-300', style.border)}>
       {isFetching && (
         <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full border border-gray-200 border-t-gray-400 animate-spin" style={{ animationDuration: '0.7s' }} />
       )}
@@ -39,10 +39,10 @@ export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, er
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium leading-tight truncate">{svc.name}</p>
-        <p className="text-[11px] text-gray-400">{svc.desc}</p>
+        <p className="text-[11px] text-gray-400 truncate">{svc.desc}</p>
       </div>
-      <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0', style.badge)}>
-        <span className={clsx('w-1.5 h-1.5 rounded-full', style.dot)} />
+      <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 whitespace-nowrap', style.badge)}>
+        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
         {error ? 'Unavailable' : statusLabel}
       </div>
     </div>

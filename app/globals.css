@@ -4,8 +4,12 @@
 @source "../components";
 @source "../lib";
 
+/* Tailwind safelist — classes used conditionally that must survive purge */
+/* xl:flex-row xl:w-80 xl:flex-shrink-0 flex-col overflow-x-hidden */
+
 @layer base {
   body {
+    overflow-x: hidden;
     color: #1a1a1a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

@@ -187,51 +187,68 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header className="bg-white border-b border-black/[0.08] sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between w-full">
-          <div className="flex items-center gap-2">
-            <img src="/opichi-logo.png" alt="Opichi" width={32} height={32} className="object-contain" />
-            <span className="font-semibold text-sm">Opichi Status Board</span>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+          {/* Main row */}
+          <div className="h-14 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <img src="/opichi-logo.png" alt="Opichi" width={32} height={32} className="object-contain" />
+              <span className="font-semibold text-sm hidden sm:block">Opichi Status Board</span>
+            </div>
 
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-            {['dashboard', 'log'].map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={clsx('px-4 py-1.5 rounded-lg text-xs font-medium capitalize transition-all',
-                  tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
-                {t === 'log' ? 'Fetch Log' : 'Dashboard'}
-              </button>
-            ))}
-          </div>
+            {/* Tabs — desktop only; mobile tabs appear in the row below */}
+            <div className="hidden sm:flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+              {['dashboard', 'log'].map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={clsx('px-4 py-1.5 rounded-lg text-xs font-medium capitalize transition-all',
+                    tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
+                  {t === 'log' ? 'Fetch Log' : 'Dashboard'}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400 tabular-nums hidden sm:block">
-              Refresh in <span className="font-semibold text-gray-600">{countdown}s</span>
-            </span>
-            <button onClick={refreshAll}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-black/[0.12] rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-all">
-              <RefreshCw size={12} />
-              <span className="hidden sm:inline">Refresh now</span>
-            </button>
-            <div className="flex items-center gap-2 pl-3 border-l border-black/[0.08]">
-              <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
-                <User size={13} className="text-green-700" />
-              </div>
-              <span className="text-xs font-medium text-gray-700 hidden md:block max-w-[120px] truncate">
-                {session.user?.name || session.user?.email}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-xs text-gray-400 tabular-nums hidden sm:block">
+                Refresh in <span className="font-semibold text-gray-600">{countdown}s</span>
               </span>
-              <button onClick={handleSignOut} title="Sign out"
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 border border-transparent hover:border-red-200 hover:bg-red-50 rounded-lg px-2 py-1.5 transition-all">
-                <LogOut size={13} />
-                <span className="hidden sm:inline">Sign out</span>
+              <button onClick={refreshAll}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-black/[0.12] rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-gray-50 transition-all">
+                <RefreshCw size={12} />
+                <span className="hidden sm:inline">Refresh now</span>
               </button>
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-black/[0.08]">
+                <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                  <User size={13} className="text-green-700" />
+                </div>
+                <span className="text-xs font-medium text-gray-700 hidden md:block max-w-[120px] truncate">
+                  {session.user?.name || session.user?.email}
+                </span>
+                <button onClick={handleSignOut} title="Sign out"
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 border border-transparent hover:border-red-200 hover:bg-red-50 rounded-lg px-2 py-1.5 transition-all">
+                  <LogOut size={13} />
+                  <span className="hidden sm:inline">Sign out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile-only tabs row */}
+          <div className="flex sm:hidden pb-2">
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl w-full">
+              {['dashboard', 'log'].map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={clsx('flex-1 py-1.5 rounded-lg text-xs font-medium capitalize transition-all',
+                    tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
+                  {t === 'log' ? 'Fetch Log' : 'Dashboard'}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 w-full">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
         {tab === 'dashboard' && (
           <>
             {/* Page title + last updated + Add service */}
@@ -266,8 +283,8 @@ export default function Dashboard() {
             )}
 
             {hasIssues ? (
-              <div className="flex gap-6 items-start">
-                <div className="w-80 flex-shrink-0">
+              <div className="flex flex-col gap-6 items-start xl:flex-row">
+                <div className="w-full xl:w-80 xl:flex-shrink-0">
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={14} className="text-green-500" />
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operational</h2>
