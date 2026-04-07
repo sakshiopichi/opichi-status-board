@@ -284,7 +284,7 @@ export default function Dashboard() {
 
             {hasIssues ? (
               <div className="flex flex-col gap-6 items-start xl:flex-row">
-                <div className="w-full xl:w-80 xl:flex-shrink-0">
+                <div className="w-full xl:w-80 xl:flex-shrink-0 order-2 xl:order-1">
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={14} className="text-green-500" />
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Operational</h2>
@@ -305,7 +305,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 order-1 xl:order-2">
                   <div className="flex items-center gap-2 mb-3">
                     <AlertTriangle size={14} className="text-amber-500" />
                     <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Issues</h2>
