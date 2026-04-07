@@ -50,71 +50,97 @@ export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, er
   );
 }
 
+function IncidentList({ incidents, error }) {
+  return (
+    <div className="border-t border-black/[0.06] divide-y divide-black/[0.04]">
+      {incidents && incidents.length > 0 ? incidents.map((inc, i) => {
+        const cfg = getImpactCfg(inc.impact);
+        const Icon = cfg.icon;
+        return (
+          <div key={i} className="px-4 py-3">
+            <div className="flex items-start gap-2 mb-2">
+              <Icon size={14} className="mt-0.5 flex-shrink-0 text-gray-500" />
+              <p className="text-sm font-semibold text-gray-800 leading-snug break-words">{inc.name}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded', cfg.badge)}>{cfg.label}</span>
+              <span className="text-xs text-gray-500">
+                Status: <span className="font-semibold capitalize">{inc.status}</span>
+              </span>
+              {inc.time && <span className="text-xs text-gray-400">· {inc.time}</span>}
+            </div>
+            {inc.update && (
+              <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 border border-black/[0.06] break-words">
+                {inc.update}
+              </p>
+            )}
+          </div>
+        );
+      }) : (
+        <div className="px-4 py-3">
+          <p className="text-xs text-gray-400">{error || 'Service is experiencing issues.'}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IssueCardHeader({ svc, statusKey, statusLabel, isFetching, error, style, chevron }) {
+  return (
+    <>
+      {isFetching && (
+        <span className="absolute top-3 right-10 w-2 h-2 rounded-full border border-gray-200 border-t-gray-400 animate-spin" style={{ animationDuration: '0.7s' }} />
+      )}
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: svc.bg }}>
+        <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={16} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold leading-tight truncate">{svc.name}</p>
+        <p className="text-[11px] text-gray-400 truncate">{svc.desc}</p>
+      </div>
+      <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 max-w-[110px]', style.badge)}>
+        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
+        <span className="truncate">{error ? 'Unavailable' : statusLabel}</span>
+      </div>
+      {chevron}
+    </>
+  );
+}
+
 // Expandable card for services with incidents
 export function IssueCard({ svc, statusKey, statusLabel, isFetching, error, incidents }) {
   const [expanded, setExpanded] = useState(false);
   const style = STATUS_STYLES[error ? 'err' : statusKey] || STATUS_STYLES.load;
   return (
     <div className={clsx('relative bg-white rounded-2xl border overflow-hidden w-full transition-all duration-300', style.border)}>
-      {isFetching && (
-        <span className="absolute top-3 right-10 w-2 h-2 rounded-full border border-gray-200 border-t-gray-400 animate-spin" style={{ animationDuration: '0.7s' }} />
-      )}
-      {/* Clickable header — always visible */}
-      <button
-        onClick={() => setExpanded(v => !v)}
-        className="w-full px-4 py-3 flex items-center gap-2 text-left min-w-0"
-      >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: svc.bg }}>
-          <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold leading-tight truncate">{svc.name}</p>
-          <p className="text-[11px] text-gray-400 truncate">{svc.desc}</p>
-        </div>
-        <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 max-w-[110px]', style.badge)}>
-          <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
-          <span className="truncate">{error ? 'Unavailable' : statusLabel}</span>
-        </div>
-        <ChevronDown
-          size={14}
-          className={clsx('flex-shrink-0 text-gray-400 transition-transform duration-200', expanded && 'rotate-180')}
-        />
-      </button>
+      {/* Mobile — collapsible */}
+      <div className="xl:hidden">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="relative w-full px-4 py-3 flex items-center gap-2 text-left min-w-0"
+        >
+          <IssueCardHeader svc={svc} statusKey={statusKey} statusLabel={statusLabel}
+            isFetching={isFetching} error={error} style={style}
+            chevron={
+              <ChevronDown size={14}
+                className={clsx('flex-shrink-0 text-gray-400 transition-transform duration-200', expanded && 'rotate-180')}
+              />
+            }
+          />
+        </button>
+        {expanded && <IncidentList incidents={incidents} error={error} />}
+      </div>
 
-      {/* Expandable incident details */}
-      {expanded && (
-        <div className="border-t border-black/[0.06] divide-y divide-black/[0.04]">
-          {incidents && incidents.length > 0 ? incidents.map((inc, i) => {
-            const cfg = getImpactCfg(inc.impact);
-            const Icon = cfg.icon;
-            return (
-              <div key={i} className="px-4 py-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <Icon size={14} className="mt-0.5 flex-shrink-0 text-gray-500" />
-                  <p className="text-sm font-semibold text-gray-800 leading-snug break-words">{inc.name}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded', cfg.badge)}>{cfg.label}</span>
-                  <span className="text-xs text-gray-500">
-                    Status: <span className="font-semibold capitalize">{inc.status}</span>
-                  </span>
-                  {inc.time && <span className="text-xs text-gray-400">· {inc.time}</span>}
-                </div>
-                {inc.update && (
-                  <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 border border-black/[0.06] break-words">
-                    {inc.update}
-                  </p>
-                )}
-              </div>
-            );
-          }) : (
-            <div className="px-4 py-3">
-              <p className="text-xs text-gray-400">{error || 'Service is experiencing issues.'}</p>
-            </div>
-          )}
+      {/* Desktop — always expanded */}
+      <div className="hidden xl:block">
+        <div className="relative px-4 py-3 flex items-center gap-2 border-b border-black/[0.06]">
+          <IssueCardHeader svc={svc} statusKey={statusKey} statusLabel={statusLabel}
+            isFetching={isFetching} error={error} style={style} chevron={null}
+          />
         </div>
-      )}
+        <IncidentList incidents={incidents} error={error} />
+      </div>
     </div>
   );
 }
