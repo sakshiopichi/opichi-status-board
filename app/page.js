@@ -194,7 +194,7 @@ export default function Dashboard() {
           <div className="h-14 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-shrink-0">
               <img src="/opichi-logo.png" alt="Opichi" width={32} height={32} className="object-contain" />
-              <span className="font-semibold text-sm hidden sm:block">Opichi Status Board</span>
+              <span className="font-semibold text-sm">Opichi Status Board</span>
             </div>
 
             {/* Tabs — desktop only; mobile tabs appear in the row below */}
