@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated]   = useState('');
   const [countdown, setCountdown]       = useState(REFRESH_INTERVAL);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // customSvcRecords: [{ id, catalogId }] — raw from DB
   const [customSvcRecords, setCustomSvcRecords] = useState([]);
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const refreshAll = useCallback(async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
+    setIsRefreshing(true);
     clearInterval(timerRef.current);
     setCountdown(REFRESH_INTERVAL);
     addLog('info', '── Refresh cycle started ──');
@@ -84,6 +86,7 @@ export default function Dashboard() {
     setLastUpdated(now());
     addLog('info', `── Cycle complete — next in ${REFRESH_INTERVAL}s ──`);
     refreshingRef.current = false;
+    setIsRefreshing(false);
     let secs = REFRESH_INTERVAL;
     timerRef.current = setInterval(() => {
       secs--;
@@ -226,10 +229,10 @@ export default function Dashboard() {
               <span className="text-xs text-gray-400 tabular-nums hidden sm:block">
                 Refresh in <span className="font-semibold text-gray-600">{countdown}s</span>
               </span>
-              <button onClick={refreshAll}
-                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-black/[0.12] rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-gray-50 transition-all">
-                <RefreshCw size={12} />
-                <span className="hidden sm:inline">Refresh now</span>
+              <button onClick={refreshAll} disabled={isRefreshing}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-black/[0.12] rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-gray-50 transition-all disabled:opacity-60">
+                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">{isRefreshing ? 'Refreshing…' : 'Refresh now'}</span>
               </button>
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-black/[0.08]">
                 <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
