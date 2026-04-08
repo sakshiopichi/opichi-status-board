@@ -155,6 +155,10 @@ export default function Dashboard() {
     });
   }
 
+  // Severity order — lower number = more severe
+  const SEVERITY = { maj: 0, err: 1, part: 2, deg: 3, maint: 4, load: 5, ok: 6 };
+  const INCIDENT_SEVERITY = { critical: 0, major: 1, minor: 2, maintenance: 3 };
+
   // Partition all services into operational and issue groups
   const allServices = [...SERVICES, ...customSvcs];
   const operationalServices = [];
@@ -164,7 +168,12 @@ export default function Dashboard() {
     const d = svcData[svc.id];
     const { key, label } = getServiceStatus(svc, d?.data);
     const statusKey = d?.error ? 'err' : key;
-    const incidents = d?.data ? getIncidents(svc, d.data) : [];
+    // Sort incidents within each service by severity
+    const rawIncidents = d?.data ? getIncidents(svc, d.data) : [];
+    const incidents = [...rawIncidents].sort((a, b) =>
+      (INCIDENT_SEVERITY[(a.impact || '').toLowerCase()] ?? 99) -
+      (INCIDENT_SEVERITY[(b.impact || '').toLowerCase()] ?? 99)
+    );
     const entry = { svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents };
 
     if (!d) {
@@ -175,6 +184,11 @@ export default function Dashboard() {
       issueServices.push(entry);
     }
   }
+
+  // Sort services by severity — most severe service first
+  issueServices.sort((a, b) =>
+    (SEVERITY[a.statusKey] ?? 99) - (SEVERITY[b.statusKey] ?? 99)
+  );
 
   const hasIssues = issueServices.length > 0;
 

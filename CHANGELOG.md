@@ -1,3 +1,10 @@
+# [2026-04-08]
+
+## Changed
+- `app/page.js`: Active issue services are now sorted by severity (Major Outage → Error → Partial Outage → Degraded → Maintenance). Within each service, individual incidents are also sorted by severity (Critical → Major → Minor → Maintenance).
+
+---
+
 # [2026-04-06]
 
 ## Added
