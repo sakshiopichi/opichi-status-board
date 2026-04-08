@@ -265,39 +265,23 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 w-full">
         {tab === 'dashboard' && (
           <>
-            {/* Page title + last updated + Add service */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="flex items-center gap-2.5 mb-1">
-                  <span className={clsx('w-2 h-2 rounded-full', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
-                    style={{ animation: 'pulse 2s infinite' }} />
-                  <h1 className="text-2xl font-semibold tracking-tight">Services Status</h1>
-                </div>
-                <p className="text-sm text-gray-400 ml-4">
-                  {lastUpdated ? `Last updated ${lastUpdated}` : 'Initializing…'}
-                </p>
-              </div>
+            {/* Slim toolbar: status indicator + last updated + add service */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className={clsx('w-2 h-2 rounded-full flex-shrink-0', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
+                style={{ animation: 'pulse 2s infinite' }} />
+              <span className="text-xs text-gray-400 tabular-nums">
+                {lastUpdated ? `Updated ${lastUpdated}` : 'Initializing…'}
+              </span>
               <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl px-4 py-2 transition-all flex-shrink-0 mt-1">
-                <Plus size={14} />
+                className="ml-auto flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg px-3 py-1.5 transition-all flex-shrink-0">
+                <Plus size={12} />
                 Add service
               </button>
             </div>
-
-            {/* All-clear banner */}
-            {!hasIssues && lastUpdated && (
-              <div className="mb-6 rounded-2xl px-5 py-4 flex items-center gap-3 bg-green-50 border border-green-200">
-                <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-green-800">All systems operational</p>
-                  <p className="text-xs text-green-600 mt-0.5">No incidents detected. Dashboard auto-refreshes every 30 seconds.</p>
-                </div>
-              </div>
-            )}
 
             {hasIssues ? (
               <div className="flex flex-col gap-6 items-start xl:flex-row">

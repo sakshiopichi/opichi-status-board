@@ -1,6 +1,7 @@
 # [2026-04-08]
 
 ## Changed
+- `app/page.js`: Removed "Services Status" heading and large all-clear banner. Replaced with a slim single-line toolbar (pulse dot + last-updated timestamp + Add service button). Reduced main padding from `py-6/py-8` to `py-3/py-4` to maximise content above the fold.
 - `app/page.js`: Active issue services are now sorted by severity (Major Outage → Error → Partial Outage → Degraded → Maintenance). Within each service, individual incidents are also sorted by severity (Critical → Major → Minor → Maintenance).
 
 ---
