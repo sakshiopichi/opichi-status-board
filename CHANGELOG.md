@@ -1,5 +1,11 @@
 # [2026-04-08]
 
+## Added
+- `prisma/schema.prisma` + `prisma/migrations/20260408000000_add_incident_log`: New `IncidentLog` table tracking every incident that appears in the Active Issues column — records serviceId, serviceName, incidentName, impact, firstSeen, resolvedAt, status.
+- `app/api/incidents/route.js`: GET returns full log newest-first. POST syncs current active issues — inserts new incidents, marks disappeared ones as resolved.
+- `app/history/page.js`: `/history` page showing all logged incidents split into Active and Resolved sections, accessible to any logged-in user.
+- `app/page.js`: After each refresh cycle, syncs active issues to the incident log via POST `/api/incidents`. Added History link in navbar.
+
 ## Changed
 - `app/page.js`: Removed "Services Status" heading and large all-clear banner. Replaced with a slim single-line toolbar (pulse dot + last-updated timestamp + Add service button). Reduced main padding from `py-6/py-8` to `py-3/py-4` to maximise content above the fold.
 - `app/page.js`: Active issue services are now sorted by severity (Major Outage → Error → Partial Outage → Degraded → Maintenance). Within each service, individual incidents are also sorted by severity (Critical → Major → Minor → Maintenance).

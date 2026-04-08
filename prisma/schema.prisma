@@ -71,3 +71,14 @@ model CustomService {
 
   @@unique([userId, catalogId])
 }
+
+model IncidentLog {
+  id           String    @id @default(cuid())
+  serviceId    String
+  serviceName  String
+  incidentName String
+  impact       String
+  firstSeen    DateTime  @default(now())
+  resolvedAt   DateTime?
+  status       String    @default("active")
+}

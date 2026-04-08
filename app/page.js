@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
+import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle, Plus, History } from 'lucide-react';
 import clsx from 'clsx';
+import Link from 'next/link';
 import { SERVICES, getServiceStatus, getIncidents } from '@/lib/services';
 import { CATALOG } from '@/lib/catalog';
 import { CompactServiceCard, IssueCard } from '@/components/ServiceCard';
@@ -37,6 +38,8 @@ export default function Dashboard() {
   const refreshingRef = useRef(false);
   // Holds the current merged services list so refreshAll always reads the latest
   const allServicesRef = useRef([...SERVICES]);
+  // Mirrors svcData state so refreshAll can read latest data without stale closure
+  const svcDataRef = useRef({});
 
   useEffect(() => {
     if (!isPending && !session) router.push('/login');
@@ -64,11 +67,19 @@ export default function Dashboard() {
       const res = await fetch(`/api/proxy?url=${encodeURIComponent(svc.url)}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      setSvcData(prev => ({ ...prev, [svc.id]: { data, error: null } }));
+      setSvcData(prev => {
+        const next = { ...prev, [svc.id]: { data, error: null } };
+        svcDataRef.current = next;
+        return next;
+      });
       const { key } = getServiceStatus(svc, data);
       addLog('ok', `[${svc.id}] ✓ ${res.status} — ${Date.now() - t0}ms — ${key}`);
     } catch (e) {
-      setSvcData(prev => ({ ...prev, [svc.id]: { data: null, error: e.message } }));
+      setSvcData(prev => {
+        const next = { ...prev, [svc.id]: { data: null, error: e.message } };
+        svcDataRef.current = next;
+        return next;
+      });
       addLog('err', `[${svc.id}] ✗ ${e.message}`);
     } finally {
       setFetching(prev => { const s = new Set(prev); s.delete(svc.id); return s; });
@@ -85,6 +96,34 @@ export default function Dashboard() {
     await Promise.allSettled(allServicesRef.current.map(fetchOne));
     setLastUpdated(now());
     addLog('info', `── Cycle complete — next in ${REFRESH_INTERVAL}s ──`);
+
+    // Sync active issues to incident log
+    try {
+      const currentData = svcDataRef.current;
+      const activeIssues = allServicesRef.current
+        .flatMap(svc => {
+          const d = currentData[svc.id];
+          const { key } = getServiceStatus(svc, d?.data);
+          const statusKey = d?.error ? 'err' : key;
+          if (!d || statusKey === 'ok') return [];
+          const incidents = d.data ? getIncidents(svc, d.data) : [];
+          if (incidents.length === 0) {
+            return [{ serviceId: svc.id, serviceName: svc.name, incidentName: statusKey, impact: 'major' }];
+          }
+          return incidents.map(inc => ({
+            serviceId: svc.id,
+            serviceName: svc.name,
+            incidentName: inc.name,
+            impact: inc.impact || 'minor',
+          }));
+        });
+      await fetch('/api/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activeIssues),
+      });
+    } catch { /* non-critical — log sync failure silently */ }
+
     refreshingRef.current = false;
     setIsRefreshing(false);
     let secs = REFRESH_INTERVAL;
@@ -241,6 +280,11 @@ export default function Dashboard() {
                 <span className="text-xs font-medium text-gray-700 hidden md:block max-w-[120px] truncate">
                   {session.user?.name || session.user?.email}
                 </span>
+                <Link href="/history" title="Incident history"
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 border border-transparent hover:border-black/[0.12] hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-all">
+                  <History size={13} />
+                  <span className="hidden sm:inline">History</span>
+                </Link>
                 <button onClick={handleSignOut} title="Sign out"
                   className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 border border-transparent hover:border-red-200 hover:bg-red-50 rounded-lg px-2 py-1.5 transition-all">
                   <LogOut size={13} />
