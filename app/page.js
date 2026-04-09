@@ -218,9 +218,8 @@ export default function Dashboard() {
     );
     const entry = { svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents };
 
-    if (!d) {
-      operationalServices.push(entry);
-    } else if (statusKey === 'ok') {
+    if (!d || statusKey === 'ok' || statusKey === 'maint') {
+      // Maintenance is scheduled and expected — show in operational column, not issues
       operationalServices.push(entry);
     } else {
       issueServices.push(entry);
@@ -265,9 +264,13 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-xs text-gray-400 tabular-nums hidden sm:block">
-                Refresh in <span className="font-semibold text-gray-600">{countdown}s</span>
-              </span>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
+                  style={{ animation: 'pulse 2s infinite' }} />
+                <span className="text-xs text-gray-400 tabular-nums">
+                  {lastUpdated ? `Updated ${lastUpdated}` : 'Initializing…'}
+                </span>
+              </div>
               <button onClick={refreshAll} disabled={isRefreshing}
                 className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-black/[0.12] rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-gray-50 transition-all disabled:opacity-60">
                 <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
@@ -312,20 +315,6 @@ export default function Dashboard() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 w-full">
         {tab === 'dashboard' && (
           <>
-            {/* Slim toolbar: status indicator + last updated + add service */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className={clsx('w-2 h-2 rounded-full flex-shrink-0', hasIssues ? 'bg-amber-500' : 'bg-emerald-500')}
-                style={{ animation: 'pulse 2s infinite' }} />
-              <span className="text-xs text-gray-400 tabular-nums">
-                {lastUpdated ? `Updated ${lastUpdated}` : 'Initializing…'}
-              </span>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="ml-auto flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg px-3 py-1.5 transition-all flex-shrink-0">
-                <Plus size={12} />
-                Add service
-              </button>
-            </div>
 
             {hasIssues ? (
               <div className="flex flex-col gap-6 items-start xl:flex-row">
@@ -347,6 +336,11 @@ export default function Dashboard() {
                     {operationalServices.length === 0 && (
                       <p className="text-xs text-gray-400 py-2">No operational services.</p>
                     )}
+                    <button onClick={() => setShowAddModal(true)}
+                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 border-dashed rounded-xl px-3 py-2.5 transition-all w-full mt-1">
+                      <Plus size={12} />
+                      Add service
+                    </button>
                   </div>
                 </div>
 
@@ -376,6 +370,11 @@ export default function Dashboard() {
                     isFetching={isFetching} error={error}
                   />
                 ))}
+                <button onClick={() => setShowAddModal(true)}
+                  className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 border-dashed rounded-xl px-3 py-3 transition-all">
+                  <Plus size={12} />
+                  Add service
+                </button>
               </div>
             )}
           </>
