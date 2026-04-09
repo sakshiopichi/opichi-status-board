@@ -1,5 +1,20 @@
 # [2026-04-08]
 
+## Changed (uncertainty = issue)
+- `lib/services.js`: `getServiceStatus` now returns `warn` (not `load`) when data is received but unreadable — wrong shape, missing status field, unexpected format. Each service type validates its expected data structure before returning `ok`. Label changed from "Loading…" to "Checking…" for the no-data state.
+- `app/page.js`: `load` (no data yet) stays in the operational column with a distinct pulsing state. `warn` (uncertain data) routes to the issues column — uncertainty is never silently treated as operational.
+- `components/ServiceCard.jsx`: Added `warn` status style (amber). `load` dot now pulses to visually distinguish "checking" from confirmed green.
+
+## Changed (severity tiers)
+- `components/ServiceCard.jsx`: IssueCard now has three visually distinct tiers based on severity:
+  - **Critical** (`maj`/`err`): Red tinted background, red border, shadow, larger icon/text, red-tinted incident details
+  - **Warning** (`part`/`deg`): Amber tinted background, amber border, normal size
+  - **Maintenance** (`maint`): White background, grey, reduced opacity — clearly secondary
+
+## Changed (noise reduction)
+- `app/page.js`: Maintenance-status services (`maint`) now go to the Operational column instead of Active Issues — scheduled maintenance is expected and doesn't need urgent attention.
+- `lib/services.js`: Component-level degradations (no formal incident) now collapse into a single summary line ("3 components affected") instead of one entry per status group. Pure maintenance components are excluded entirely from this summary.
+
 ## Added
 - `prisma/schema.prisma` + `prisma/migrations/20260408000000_add_incident_log`: New `IncidentLog` table tracking every incident that appears in the Active Issues column — records serviceId, serviceName, incidentName, impact, firstSeen, resolvedAt, status.
 - `app/api/incidents/route.js`: GET returns full log newest-first. POST syncs current active issues — inserts new incidents, marks disappeared ones as resolved.

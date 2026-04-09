@@ -218,10 +218,14 @@ export default function Dashboard() {
     );
     const entry = { svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents };
 
-    if (!d || statusKey === 'ok' || statusKey === 'maint') {
-      // Maintenance is scheduled and expected — show in operational column, not issues
+    if (statusKey === 'ok' || statusKey === 'maint') {
+      // Only confirmed operational or scheduled maintenance go here
+      operationalServices.push(entry);
+    } else if (statusKey === 'load') {
+      // No data yet — show in operational column but with distinct loading state
       operationalServices.push(entry);
     } else {
+      // Anything uncertain (warn), degraded, errored → issues column
       issueServices.push(entry);
     }
   }
