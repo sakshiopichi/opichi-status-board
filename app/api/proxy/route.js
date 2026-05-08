@@ -21,13 +21,12 @@ const ALLOWED_HOSTS = [
   'status.sendgrid.com',
 ];
 
-// Hosts that have no JSON status API — we do a HEAD ping and synthesize a response
-const PING_HOSTS = [
-  'railway.app',
-];
+// Railway has a JSON API at /api/status — use that instead of scraping HTML.
+const RAILWAY_HOSTS = new Set(['status.railway.com']);
 
 // AWS status API returns UTF-16 LE encoded JSON — needs special decoding
 const AWS_HOSTS = new Set(['health.aws.amazon.com']);
+
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -61,33 +60,17 @@ export async function GET(request) {
     }
   }
 
-  // Ping mode: HEAD request → synthetic status JSON
-  if (PING_HOSTS.includes(parsed.hostname)) {
+  // Railway mode: fetch their JSON API (activeIncidents + component status)
+  if (RAILWAY_HOSTS.has(parsed.hostname)) {
     try {
-      const res = await fetch(target, {
-        method: 'HEAD',
-        redirect: 'follow',
-        headers: { 'User-Agent': 'StatusDashboard/1.0' },
+      const res = await fetch(`https://${parsed.hostname}/api/status`, {
+        headers: { 'User-Agent': 'StatusDashboard/1.0', Accept: 'application/json' },
         next: { revalidate: 0 },
       });
-      if (res.ok || res.status === 301 || res.status === 302) {
-        return Response.json({
-          status: { indicator: 'none', description: 'Operational' },
-          incidents: [],
-          components: [],
-        }, { headers: { 'Cache-Control': 'no-store' } });
-      }
-      return Response.json({
-        status: { indicator: 'major', description: `HTTP ${res.status}` },
-        incidents: [],
-        components: [],
-      }, { headers: { 'Cache-Control': 'no-store' } });
+      const data = await res.json();
+      return Response.json(data, { headers: { 'Cache-Control': 'no-store' } });
     } catch (err) {
-      return Response.json({
-        status: { indicator: 'major', description: 'Unreachable' },
-        incidents: [],
-        components: [],
-      }, { headers: { 'Cache-Control': 'no-store' } });
+      return Response.json({ error: err.message }, { status: 502 });
     }
   }
 

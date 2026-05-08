@@ -9,7 +9,7 @@ datasource db {
 model User {
   id            String    @id
   name          String
-  email         String    @unique
+  email         String    @unique                                         
   emailVerified Boolean   @default(false)
   image         String?
   role          String?
@@ -81,4 +81,19 @@ model IncidentLog {
   firstSeen    DateTime  @default(now())
   resolvedAt   DateTime?
   status       String    @default("active")
+}
+
+model UserPreferences {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  preferences Json     @default("{}")
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model StatusCache {
+  id        String   @id @default(cuid())
+  svcId     String   @unique
+  data      Json?
+  error     String?
+  fetchedAt DateTime @default(now()) @updatedAt
 }

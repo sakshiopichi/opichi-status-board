@@ -102,12 +102,18 @@ export default function HistoryPage() {
                   {active.map(inc => {
                     const cfg = getImpactStyle(inc.impact);
                     const Icon = cfg.icon;
+                    const isCritical = inc.impact === 'critical' || inc.impact === 'major';
                     return (
-                      <div key={inc.id} className="bg-white border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                        <Icon size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                      <div key={inc.id} className={clsx(
+                        'border rounded-xl px-4 py-3 flex items-start gap-3',
+                        isCritical
+                          ? 'bg-red-50 border-red-300 shadow-sm shadow-red-100'
+                          : 'bg-amber-50/50 border-amber-300'
+                      )}>
+                        <Icon size={14} className={clsx('mt-0.5 flex-shrink-0', isCritical ? 'text-red-400' : 'text-amber-500')} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{inc.incidentName}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{inc.serviceName} · Started {formatDate(inc.firstSeen)}</p>
+                          <p className={clsx('text-sm font-semibold break-words', isCritical ? 'text-red-900' : 'text-gray-800')}>{inc.incidentName}</p>
+                          <p className={clsx('text-xs mt-0.5', isCritical ? 'text-red-600/70' : 'text-gray-400')}>{inc.serviceName} · Started {formatDate(inc.firstSeen)}</p>
                         </div>
                         <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0', cfg.badge)}>
                           {cfg.label}

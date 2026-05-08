@@ -1,3 +1,57 @@
+# [2026-05-08]
+
+## Fixed
+- `app/api/proxy/route.js` + `lib/services.js`: Railway now uses their JSON API (`/api/status`) instead of HTML scraping. The previous approach extracted incident names but produced no update text because it couldn't parse HTML content into structured updates. The new API returns `activeIncidents` with titles, status (INVESTIGATING/IDENTIFIED/MONITORING), latest update message, and affected component names — all now displayed in the incident card.
+
+---
+
+# [2026-04-15]
+
+## Changed
+- `app/page.js` + `components/ServiceCard.jsx`: AWS, GCP, and Railway now stay in the Operational column with amber partial-impact styling instead of moving to Active Issues. When expanded, the card lists exactly which services/incidents are affected (e.g. "DynamoDB", "EC2" for AWS). Error and warn states still route to Active Issues. This avoids the false implication that an entire platform is down when only specific services are affected.
+
+## Fixed
+- `lib/services.js` + `app/api/proxy/route.js`: Railway now scrapes `status.railway.com` instead of pinging `railway.app`. The proxy fetches their SSR HTML and extracts `data-severity` attributes and incident titles, returning synthetic Atlassian-format JSON. Railway's actual service status (degraded, outage, maintenance) now shows correctly instead of always showing Operational.
+
+## Added
+- `prisma/schema.prisma` + `prisma/migrations/20260415000000_add_status_cache`: New `StatusCache` table — one row per service (`svcId` unique), stores `data` (JSONB), `error` (TEXT), and `fetchedAt` timestamp.
+- `app/api/cron/route.js`: POST endpoint protected by `x-cron-secret` header (matches `CRON_SECRET` env var). Fetches every built-in service plus all distinct catalog services added by any user, proxies each through `/api/proxy`, and upserts the result to `StatusCache`. Designed to be called by Railway's built-in cron on a schedule.
+- `app/api/status-cache/route.js`: Session-authenticated GET endpoint. Returns all `StatusCache` rows as `{ [svcId]: { data, error, fetchedAt } }`. Used by the dashboard on init.
+- `app/page.js`: `init()` now fetches `/api/status-cache` in parallel with preferences and custom services. If cache is populated, `svcData` is seeded immediately so the first render shows real service statuses without waiting for the refresh cycle. `refreshAll()` still runs afterward to get fresh data.
+- `proxy.js`: Added `/api/cron` to `PUBLIC_PATHS` so Railway's cron HTTP call is not redirected to login.
+- `.env.local`: Added `CRON_SECRET` placeholder — replace with a strong random value in Railway environment variables before deploying.
+
+---
+
+# [2026-04-15]
+
+## Changed
+- `app/page.js`: Services with mixed component health now split across both columns. Healthy components stay in Operational; degraded components drive a separate Active Issues card for the same service. Services with no component data (GCP, AWS, Railway) or where all components are degraded continue to go entirely to Active Issues.
+- `lib/services.js`: AWS incident parsing now uses `summary` as the incident name (was raw service slug). Extracts `impacted_services` entries where `current > 0`, strips "Amazon"/"AWS" prefix, and surfaces them in the update body. Adds `affectedServices` and `region` fields to incident objects.
+- `lib/services.js`: `getAbstract` for AWS events now shows the actual impacted service names + region (e.g. "EC2, DynamoDB · Bahrain") instead of "multiservices me south 1".
+
+---
+
+# [2026-04-09]
+
+## Added
+- `lib/services.js`: `getComponents(svc, data)` — returns top-level components only (no `group_id`) for Atlassian-format services. GCP, AWS, and ping services return empty array.
+- `components/ServiceCard.jsx`: `CompactServiceCard` now accepts a `components` prop. If the service has components, a chevron appears; tapping expands a compact list with status dots. Non-operational components show their status label; operational ones show only the green dot.
+- `app/page.js`: Computes `components` per service via `getComponents`, applies per-user allowlist from `filterPrefs`, passes filtered result to `CompactServiceCard`.
+- `prisma/schema.prisma` + `prisma/migrations/20260409000000_add_user_preferences`: New `UserPreferences` table — one row per user, JSONB `preferences` column storing `{ components: { [svcId]: string[] } }`.
+- `app/api/preferences/route.js`: GET returns the user's filter preferences; PUT upserts them.
+- `components/FilterSettingsModal.jsx`: Modal UI for configuring per-service component visibility — checkboxes per component, select/deselect all per service, active filter count badge, "Clear all filters" action.
+- `app/page.js`: Loads filter preferences on init alongside custom services. "Filters" button in navbar opens the modal; an amber dot appears when filters are active. Saving preferences updates state immediately so the dropdown reflects the new filter without a page reload.
+
+## Added
+- `lib/services.js`: `getAbstract(svc, incidents, error)` — derives a single human-readable line from a service's incident list. Strips internal ID prefixes ("Incident #4821 — "), truncates at 72 chars, appends count when multiple issues exist.
+- `components/ServiceCard.jsx`: `IssueCard` now shows the abstract line by default with a "Details" toggle. Full incident list (title, update body, status, time, badges) is hidden until requested. Removed the mobile/desktop split — both behave identically.
+
+## Changed
+- `lib/services.js`: Normalised "All Systems Operational" (and any API description text) to plain "Operational" when the overall status key is `ok`.
+
+---
+
 # [2026-04-08]
 
 ## Changed (uncertainty = issue)

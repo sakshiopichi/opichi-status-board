@@ -2,8 +2,9 @@
 'use client';
 import { useState } from 'react';
 import clsx from 'clsx';
-import { AlertCircle, AlertTriangle, Wrench, ChevronDown } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Wrench, ChevronDown, X } from 'lucide-react';
 import ServiceIcon from '@/components/ServiceIcon';
+import { getAbstract } from '@/lib/services';
 
 const STATUS_STYLES = {
   ok:    { badge: 'bg-green-100 text-green-800',   dot: 'bg-green-500',  border: 'border-black/10' },
@@ -37,25 +38,85 @@ function getImpactCfg(impact) {
 }
 
 // Compact card for operational services (left column)
-export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, error }) {
+export function CompactServiceCard({ svc, statusKey, statusLabel, isFetching, error, components = [], incidents = [], onRemove }) {
+  const [expanded, setExpanded] = useState(false);
   const style = STATUS_STYLES[error ? 'err' : statusKey] || STATUS_STYLES.load;
+  const hasComponents = components.length > 0;
+  // Partial impact: AWS/GCP/Railway stays in Operational with amber indicator + expandable affected list
+  const hasPartialImpact = !hasComponents && statusKey === 'deg' && incidents.length > 0;
+  const isExpandable = hasComponents || hasPartialImpact;
+
+  const partialItems = hasPartialImpact
+    ? incidents.flatMap(inc =>
+        inc.affectedServices?.length > 0
+          ? inc.affectedServices
+          : [inc.name]
+      ).filter(Boolean)
+    : [];
+
   return (
-    <div className={clsx('card-wobble relative bg-white rounded-xl px-3 py-3 flex items-center gap-3 border transition-all duration-300', style.border)}>
-      {isFetching && (
-        <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full border border-gray-200 border-t-gray-400 animate-spin" style={{ animationDuration: '0.7s' }} />
+    <div className={clsx('card-wobble relative bg-white rounded-xl border transition-all duration-300', style.border)}>
+      {/* Main row */}
+      <div
+        className={clsx('px-3 py-3 flex items-center gap-3', isExpandable && 'cursor-pointer hover:bg-gray-50/60 transition-colors rounded-xl')}
+        onClick={isExpandable ? () => setExpanded(v => !v) : undefined}
+      >
+        {isFetching && (
+          <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full border border-gray-200 border-t-gray-400 animate-spin" style={{ animationDuration: '0.7s' }} />
+        )}
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: svc.bg }}>
+          <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium leading-tight truncate">{svc.name}</p>
+          <p className="text-[11px] text-gray-400 truncate">{svc.desc}</p>
+        </div>
+        <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 whitespace-nowrap', style.badge)}>
+          <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
+          {error ? 'Unavailable' : statusLabel}
+        </div>
+        {onRemove && (
+          <button
+            onClick={e => { e.stopPropagation(); onRemove(); }}
+            className="flex-shrink-0 text-gray-300 hover:text-red-400 transition-colors ml-0.5"
+            title="Remove service"
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Expanded: component health (Atlassian services) */}
+      {expanded && hasComponents && (
+        <div className="border-t border-black/[0.06] px-3 pt-1.5 pb-2 space-y-0.5">
+          {components.map((c, i) => {
+            const cStyle = STATUS_STYLES[c.statusKey] || STATUS_STYLES.load;
+            return (
+              <div key={i} className="flex items-center gap-2 py-0.5">
+                <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', cStyle.dot)} />
+                <span className="text-xs text-gray-600 flex-1 truncate">{c.name}</span>
+                {c.statusKey !== 'ok' && (
+                  <span className={clsx('text-[10px] font-medium px-1.5 py-0.5 rounded', cStyle.badge)}>{c.statusLabel}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: svc.bg }}>
-        <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color} size={16} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium leading-tight truncate">{svc.name}</p>
-        <p className="text-[11px] text-gray-400 truncate">{svc.desc}</p>
-      </div>
-      <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 whitespace-nowrap', style.badge)}>
-        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
-        {error ? 'Unavailable' : statusLabel}
-      </div>
+
+      {/* Expanded: partial impact (AWS/GCP/Railway — lists affected services or incident name) */}
+      {expanded && hasPartialImpact && (
+        <div className="border-t border-amber-200/60 px-3 pt-1.5 pb-2 space-y-0.5">
+          {partialItems.map((name, i) => (
+            <div key={i} className="flex items-start gap-2 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-amber-400 mt-1" />
+              <span className="text-xs text-amber-900 flex-1 break-words">{name}</span>
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex-shrink-0 mt-0.5">Affected</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -101,49 +162,17 @@ function IncidentList({ incidents, error, tier }) {
   );
 }
 
-function IssueCardHeader({ svc, statusLabel, isFetching, error, style, tier, chevron }) {
-  return (
-    <>
-      {isFetching && (
-        <span className={clsx('absolute top-3 right-10 w-2 h-2 rounded-full animate-spin',
-          tier === 'critical' ? 'border border-red-200 border-t-red-400' : 'border border-gray-200 border-t-gray-400'
-        )} style={{ animationDuration: '0.7s' }} />
-      )}
-      <div className={clsx('rounded-lg flex items-center justify-center flex-shrink-0',
-        tier === 'critical' ? 'w-10 h-10' : 'w-8 h-8'
-      )} style={{ background: svc.bg }}>
-        <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color}
-          size={tier === 'critical' ? 20 : 16} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={clsx('font-semibold leading-tight truncate',
-          tier === 'critical' ? 'text-base text-red-900' : 'text-sm text-gray-800'
-        )}>{svc.name}</p>
-        <p className={clsx('truncate', tier === 'critical' ? 'text-xs text-red-700/60' : 'text-[11px] text-gray-400')}>{svc.desc}</p>
-      </div>
-      <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full font-semibold flex-shrink-0 max-w-[120px]',
-        tier === 'critical' ? 'text-xs bg-red-100 text-red-700' :
-        tier === 'warning'  ? 'text-[10px] bg-amber-100 text-amber-700' :
-        'text-[10px] bg-gray-100 text-gray-500'
-      )}>
-        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
-        <span className="truncate">{error ? 'Unavailable' : statusLabel}</span>
-      </div>
-      {chevron}
-    </>
-  );
-}
 
-// Tier-styled issue card
+// Tier-styled issue card — shows abstract by default, full details on demand
 export function IssueCard({ svc, statusKey, statusLabel, isFetching, error, incidents }) {
-  const [expanded, setExpanded] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const key   = error ? 'err' : statusKey;
   const style = STATUS_STYLES[key] || STATUS_STYLES.load;
   const tier  = getTier(key);
+  const abstract = getAbstract(svc, incidents, error);
 
-  // Tier-based container styles
   const containerClass = clsx(
-    'relative overflow-hidden w-full transition-all duration-300 border',
+    'relative w-full transition-all duration-300 border overflow-hidden',
     tier === 'critical'
       ? 'rounded-2xl bg-red-50 border-red-300 shadow-md shadow-red-100'
       : tier === 'warning'
@@ -151,43 +180,77 @@ export function IssueCard({ svc, statusKey, statusLabel, isFetching, error, inci
       : 'rounded-xl bg-white border-black/[0.08] opacity-75'
   );
 
-  const headerPadding = tier === 'critical' ? 'px-4 py-4' : 'px-4 py-3';
+  const borderColor = tier === 'critical' ? 'border-red-200/40' : tier === 'warning' ? 'border-amber-200/40' : 'border-black/[0.06]';
 
   return (
     <div className={containerClass}>
-      {/* Mobile — collapsible */}
-      <div className="xl:hidden">
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className={clsx('relative w-full flex items-center gap-2 text-left min-w-0', headerPadding)}
-        >
-          <IssueCardHeader svc={svc} statusKey={statusKey} statusLabel={statusLabel}
-            isFetching={isFetching} error={error} style={style} tier={tier}
-            chevron={
-              <ChevronDown size={tier === 'critical' ? 16 : 14}
-                className={clsx('flex-shrink-0 transition-transform duration-200',
-                  tier === 'critical' ? 'text-red-400' : 'text-gray-400',
-                  expanded && 'rotate-180'
-                )}
-              />
-            }
-          />
-        </button>
-        {expanded && <IncidentList incidents={incidents} error={error} tier={tier} />}
+      {/* Row 1 — service identity + status badge */}
+      <div className={clsx(
+        'w-full flex items-center gap-3 px-4 border-b',
+        tier === 'critical' ? 'pt-4 pb-3' : 'pt-3 pb-2.5',
+        borderColor
+      )}>
+        {isFetching && (
+          <span className={clsx('absolute top-3 right-3 w-2 h-2 rounded-full animate-spin',
+            tier === 'critical' ? 'border border-red-200 border-t-red-400' : 'border border-gray-200 border-t-gray-400'
+          )} style={{ animationDuration: '0.7s' }} />
+        )}
+        {/* Icon */}
+        <div className={clsx('rounded-lg flex items-center justify-center flex-shrink-0',
+          tier === 'critical' ? 'w-10 h-10' : 'w-8 h-8'
+        )} style={{ background: svc.bg }}>
+          <ServiceIcon svcId={svc.id} icon={svc.icon} initials={svc.initials} color={svc.color}
+            size={tier === 'critical' ? 20 : 16} />
+        </div>
+        {/* Name + description */}
+        <div className="flex-1 min-w-0">
+          <p className={clsx('font-semibold leading-tight truncate',
+            tier === 'critical' ? 'text-base text-red-900' : 'text-sm text-gray-800'
+          )}>{svc.name}</p>
+          <p className={clsx('truncate mt-0.5',
+            tier === 'critical' ? 'text-xs text-red-700/60' : 'text-[11px] text-gray-400'
+          )}>{svc.desc}</p>
+        </div>
+        {/* Status badge */}
+        <div className={clsx('inline-flex items-center gap-1 px-2 py-1 rounded-full font-semibold flex-shrink-0',
+          tier === 'critical' ? 'text-xs bg-red-100 text-red-700' :
+          tier === 'warning'  ? 'text-[10px] bg-amber-100 text-amber-700' :
+          'text-[10px] bg-gray-100 text-gray-500'
+        )}>
+          <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', style.dot)} />
+          <span className="whitespace-nowrap">{error ? 'Unavailable' : statusLabel}</span>
+        </div>
       </div>
 
-      {/* Desktop — always expanded */}
-      <div className="hidden xl:block">
-        <div className={clsx('relative flex items-center gap-2 border-b',
-          headerPadding,
-          tier === 'critical' ? 'border-red-200/60' : tier === 'warning' ? 'border-amber-200/60' : 'border-black/[0.06]'
+      {/* Row 2 — abstract + Details toggle */}
+      <div className={clsx(
+        'w-full flex items-start gap-3 px-4 py-3',
+        showDetails && clsx('border-b', borderColor)
+      )}>
+        <p className={clsx(
+          'text-sm leading-relaxed flex-1 break-words',
+          tier === 'critical' ? 'text-red-800' : tier === 'warning' ? 'text-amber-900' : 'text-gray-600'
         )}>
-          <IssueCardHeader svc={svc} statusKey={statusKey} statusLabel={statusLabel}
-            isFetching={isFetching} error={error} style={style} tier={tier} chevron={null}
-          />
-        </div>
-        <IncidentList incidents={incidents} error={error} tier={tier} />
+          {abstract}
+        </p>
+        <button
+          onClick={() => setShowDetails(v => !v)}
+          className={clsx(
+            'text-[10px] font-medium flex items-center gap-0.5 flex-shrink-0 px-2 py-1 rounded-lg border transition-colors mt-0.5',
+            tier === 'critical'
+              ? 'text-red-600 border-red-200 hover:bg-red-100/60'
+              : tier === 'warning'
+              ? 'text-amber-600 border-amber-200 hover:bg-amber-100/60'
+              : 'text-gray-400 border-black/[0.08] hover:bg-gray-50'
+          )}
+        >
+          {showDetails ? 'Hide' : 'Details'}
+          <ChevronDown size={10} className={clsx('transition-transform duration-200 ml-0.5', showDetails && 'rotate-180')} />
+        </button>
       </div>
+
+      {/* Row 3 — full incident list, hidden until Details clicked */}
+      {showDetails && <IncidentList incidents={incidents} error={error} tier={tier} />}
     </div>
   );
 }

@@ -2,13 +2,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle, Plus, History } from 'lucide-react';
+import { RefreshCw, LogOut, User, CheckCircle2, AlertTriangle, Plus, History, SlidersHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { SERVICES, getServiceStatus, getIncidents } from '@/lib/services';
+import { SERVICES, getServiceStatus, getIncidents, getComponents } from '@/lib/services';
 import { CATALOG } from '@/lib/catalog';
 import { CompactServiceCard, IssueCard } from '@/components/ServiceCard';
 import AddServiceModal from '@/components/AddServiceModal';
+import FilterSettingsModal from '@/components/FilterSettingsModal';
 import FetchLog from '@/components/FetchLog';
 import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
@@ -29,6 +30,8 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated]   = useState('');
   const [countdown, setCountdown]       = useState(REFRESH_INTERVAL);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterPrefs, setFilterPrefs] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // customSvcRecords: [{ id, catalogId }] — raw from DB
@@ -145,13 +148,33 @@ export default function Dashboard() {
   useEffect(() => {
     if (!session) return;
     async function init() {
-      const records = await loadCustomServices();
+      const [records, prefs, cache] = await Promise.all([
+        loadCustomServices(),
+        fetch('/api/preferences').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+        fetch('/api/status-cache').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      ]);
       setCustomSvcRecords(records);
+      setFilterPrefs(prefs);
       // Sync ref before refreshAll so all services are fetched in the first cycle
       const catalogSvcs = records
         .map(r => CATALOG.find(c => c.id === r.catalogId))
         .filter(Boolean);
       allServicesRef.current = [...SERVICES, ...catalogSvcs];
+      // Seed svcData from cache so the dashboard renders real data instantly
+      // (before the first refresh cycle completes)
+      if (cache && Object.keys(cache).length > 0) {
+        const seeded = {};
+        for (const [svcId, entry] of Object.entries(cache)) {
+          seeded[svcId] = { data: entry.data, error: entry.error };
+        }
+        setSvcData(seeded);
+        svcDataRef.current = seeded;
+        const cached = cache[Object.keys(cache)[0]];
+        if (cached?.fetchedAt) {
+          const d = new Date(cached.fetchedAt);
+          setLastUpdated(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        }
+      }
       refreshAll();
     }
     init();
@@ -197,6 +220,23 @@ export default function Dashboard() {
     });
   }
 
+  async function handleSavePreferences(prefs) {
+    // Apply immediately so the dashboard reflects the change without waiting for the API
+    setFilterPrefs(prefs);
+    setShowFilterModal(false);
+    // Persist to server — non-blocking, failure is logged but doesn't revert the UI
+    try {
+      const res = await fetch('/api/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      });
+      if (!res.ok) console.error('Failed to persist preferences: HTTP', res.status);
+    } catch (e) {
+      console.error('Failed to persist preferences:', e);
+    }
+  }
+
   // Severity order — lower number = more severe
   const SEVERITY = { maj: 0, err: 1, part: 2, deg: 3, maint: 4, load: 5, ok: 6 };
   const INCIDENT_SEVERITY = { critical: 0, major: 1, minor: 2, maintenance: 3 };
@@ -216,17 +256,46 @@ export default function Dashboard() {
       (INCIDENT_SEVERITY[(a.impact || '').toLowerCase()] ?? 99) -
       (INCIDENT_SEVERITY[(b.impact || '').toLowerCase()] ?? 99)
     );
-    const entry = { svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents };
-
-    if (statusKey === 'ok' || statusKey === 'maint') {
-      // Only confirmed operational or scheduled maintenance go here
-      operationalServices.push(entry);
+    const rawComponents = d?.data ? getComponents(svc, d.data) : [];
+    const allowlist = filterPrefs?.components?.[svc.id];
+    const components = allowlist?.length > 0
+      ? rawComponents.filter(c => allowlist.includes(c.name))
+      : rawComponents;
+    // AWS, GCP, Railway have no component inventory — we can't confirm what's healthy.
+    // Keep them in Operational with amber partial-impact styling instead of sending
+    // the whole card to Active Issues. Error/warn states still go to Active Issues.
+    if (svc.isAWS || svc.isGCP || svc.isRailway) {
+      if (statusKey === 'err' || statusKey === 'warn') {
+        issueServices.push({ svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents, components: [] });
+      } else {
+        const partialKey = (statusKey === 'ok' || statusKey === 'load' || statusKey === 'maint') ? statusKey : 'deg';
+        operationalServices.push({ svc, statusKey: partialKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents, components: [] });
+      }
+    } else if (statusKey === 'ok' || statusKey === 'maint') {
+      operationalServices.push({ svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents, components });
     } else if (statusKey === 'load') {
-      // No data yet — show in operational column but with distinct loading state
-      operationalServices.push(entry);
+      operationalServices.push({ svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents, components });
     } else {
-      // Anything uncertain (warn), degraded, errored → issues column
-      issueServices.push(entry);
+      // Split by component health — healthy components stay in Operational,
+      // degraded components drive an issue entry in Active Issues.
+      const okComponents  = components.filter(c => c.statusKey === 'ok' || c.statusKey === 'maint');
+      const badComponents = components.filter(c => c.statusKey !== 'ok' && c.statusKey !== 'maint' && c.statusKey !== 'load');
+      const canSplit = okComponents.length > 0 && badComponents.length > 0;
+
+      if (canSplit) {
+        operationalServices.push({
+          svc, statusKey: 'ok', statusLabel: 'Operational',
+          isFetching: fetching.has(svc.id), error: null,
+          incidents: [], components: okComponents,
+        });
+        issueServices.push({
+          svc, statusKey, statusLabel: label,
+          isFetching: fetching.has(svc.id), error: d?.error,
+          incidents, components: badComponents,
+        });
+      } else {
+        issueServices.push({ svc, statusKey, statusLabel: label, isFetching: fetching.has(svc.id), error: d?.error, incidents, components });
+      }
     }
   }
 
@@ -292,6 +361,14 @@ export default function Dashboard() {
                   <History size={13} />
                   <span className="hidden sm:inline">History</span>
                 </Link>
+                <button onClick={() => setShowFilterModal(true)} title="Component filters"
+                  className="relative flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 border border-transparent hover:border-black/[0.12] hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-all">
+                  <SlidersHorizontal size={13} />
+                  <span className="hidden sm:inline">Filters</span>
+                  {filterPrefs?.components && Object.values(filterPrefs.components).some(v => v?.length > 0) && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 border border-white" />
+                  )}
+                </button>
                 <button onClick={handleSignOut} title="Sign out"
                   className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 border border-transparent hover:border-red-200 hover:bg-red-50 rounded-lg px-2 py-1.5 transition-all">
                   <LogOut size={13} />
@@ -331,10 +408,11 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="flex flex-col gap-2">
-                    {operationalServices.map(({ svc, statusKey, statusLabel, isFetching, error }) => (
+                    {operationalServices.map(({ svc, statusKey, statusLabel, isFetching, error, components, incidents }) => (
                       <CompactServiceCard key={svc.id}
                         svc={svc} statusKey={statusKey} statusLabel={statusLabel}
-                        isFetching={isFetching} error={error}
+                        isFetching={isFetching} error={error} components={components} incidents={incidents}
+                        onRemove={svc._recordId ? () => handleRemoveService(svc.id, svc._recordId) : undefined}
                       />
                     ))}
                     {operationalServices.length === 0 && (
@@ -368,10 +446,11 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {operationalServices.map(({ svc, statusKey, statusLabel, isFetching, error }) => (
+                {operationalServices.map(({ svc, statusKey, statusLabel, isFetching, error, components, incidents }) => (
                   <CompactServiceCard key={svc.id}
                     svc={svc} statusKey={statusKey} statusLabel={statusLabel}
-                    isFetching={isFetching} error={error}
+                    isFetching={isFetching} error={error} components={components} incidents={incidents}
+                    onRemove={svc._recordId ? () => handleRemoveService(svc.id, svc._recordId) : undefined}
                   />
                 ))}
                 <button onClick={() => setShowAddModal(true)}
@@ -401,6 +480,16 @@ export default function Dashboard() {
           onAdd={handleAddService}
           onRemove={handleRemoveService}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {showFilterModal && (
+        <FilterSettingsModal
+          allServices={allServices}
+          svcData={svcData}
+          filterPrefs={filterPrefs}
+          onSave={handleSavePreferences}
+          onClose={() => setShowFilterModal(false)}
         />
       )}
     </div>

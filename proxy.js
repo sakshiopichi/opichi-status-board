@@ -1,7 +1,7 @@
 // IMPORTANT: After modifying this file, update CHANGELOG.md with a summary of your changes.
 import { NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/api/auth'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/api/auth', '/api/cron'];
 
 const STATIC_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.ico', '.webp', '.woff', '.woff2', '.ttf', '.otf'];
 
